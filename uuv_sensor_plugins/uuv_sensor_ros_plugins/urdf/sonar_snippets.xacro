@@ -1,13 +1,10 @@
 <?xml version="1.0"?>
 <!-- Copyright (c) 2016 The UUV Simulator Authors.
      All rights reserved.
-
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-
        http://www.apache.org/licenses/LICENSE-2.0
-
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -152,11 +149,12 @@
   </joint>
 
   <gazebo reference="${namespace}/sonar${suffix}_link">
-    <sensor type="gpu_ray" name="sonar${suffix}">
+    <!--<sensor type="gpu_ray" name="sonar${suffix}"> -->
+    <sensor type="ray" name="sonar${suffix}">
       <pose>0 0 0 0 0 0</pose>
 
       <!--Change value here to make sonar beams visible or not-->
-      <visualize>true</visualize> 
+      <visualize>true</visualize>
       <update_rate>${update_rate}</update_rate>
       <ray>
         <scan>
@@ -178,7 +176,8 @@
           <stddev>${range_stddev}</stddev>
         </noise>
       </ray>
-      <plugin name="sonar${suffix}_controller" filename="libgazebo_ros_gpu_laser.so">
+      <!--<plugin name="sonar${suffix}_controller" filename="libgazebo_ros_gpu_laser.so">-->
+        <plugin name="sonar${suffix}_controller" filename="libgazebo_ros_laser.so">
         <topicName>${topic}</topicName>
         <frameName>sonar${suffix}_link</frameName>
       </plugin>
@@ -219,7 +218,7 @@
       <axis xyz="1 0 0"/>
     </joint>
 
-  
+
     <gazebo reference="${namespace}/forward_sonar${suffix}_link">
       <sensor name="${namespace}/image_sonar" type="depth">
         <camera>
@@ -251,7 +250,7 @@
       <parent link="${namespace}/forward_sonar${suffix}_link"/>
       <child link="${namespace}/forward_sonar${suffix}_optical_frame"/>
     </joint>
-	
+
 	<link name="${namespace}/forward_sonar${suffix}_optical_frame"/>
   </xacro:macro>
 
