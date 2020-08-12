@@ -160,7 +160,7 @@ namespace gazebo
     private: sensor_msgs::Image sonar_image_msg_;
     private: sensor_msgs::Image raw_sonar_image_msg_;
 
-    private: double point_cloud_cutoff_;
+    private: double point_cloud_cutoff_, point_cloud_cutoff_max;
 
     /// \brief ROS image topic name
     private: std::string point_cloud_topic_name_;

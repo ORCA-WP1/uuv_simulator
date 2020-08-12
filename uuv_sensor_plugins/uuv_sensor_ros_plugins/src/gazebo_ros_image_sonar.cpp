@@ -94,7 +94,6 @@ void GazeboRosImageSonar::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   this->height = this->depthCamera->ImageHeight();
   this->depth = this->depthCamera->ImageDepth();
   this->format = this->depthCamera->ImageFormat();
-
   this->newDepthFrameConnection = this->depthCamera->ConnectNewDepthFrame(
       std::bind(&GazeboRosImageSonar::OnNewDepthFrame,
         this, std::placeholders::_1, std::placeholders::_2,
@@ -156,6 +155,15 @@ void GazeboRosImageSonar::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   else
     this->point_cloud_cutoff_ = _sdf->GetElement("pointCloudCutoff")->Get<double>();
   
+	this->point_cloud_cutoff_max = this->camera_->FarClip();
+	ros::NodeHandle nh;
+  nh.setParam("fls_max_range", (double)this->point_cloud_cutoff_max);
+
+  /*if (!_sdf->HasElement("pointCloudCutoffMax"))
+    this->point_cloud_cutoff_max = 1.0;
+  else
+    this->point_cloud_cutoff_max = _sdf->GetElement("pointCloudCutoffMax")->Get<double>();
+  */
   if (!_sdf->HasElement("clip")) {
     gzerr << "We do not have clip" << std::endl;
   }
@@ -901,6 +909,7 @@ cv::Mat GazeboRosImageSonar::ConstructScanImage(cv::Mat& depth, cv::Mat& SNR)
   img_bridge = cv_bridge::CvImage(this->raw_sonar_image_msg_.header, sensor_msgs::image_encodings::TYPE_32FC1, scan);
   img_bridge.toImageMsg(this->raw_sonar_image_msg_); // from cv_bridge to sensor_msgs::Image
   
+  //gzerr << "DepthCameraDepth " << (double)this->point_cloud_cutoff_  << "\n";
   this->raw_sonar_image_pub_.publish(this->raw_sonar_image_msg_);
 
   return scan;
@@ -909,6 +918,8 @@ cv::Mat GazeboRosImageSonar::ConstructScanImage(cv::Mat& depth, cv::Mat& SNR)
 cv::Mat GazeboRosImageSonar::ConstructVisualScanImage(cv::Mat& raw_scan)
 {
   float fov = depthCamera->HFOV().Degree();
+
+
   float mapped_range = float(raw_scan.rows);
 
   cv::Scalar blue(15, 48, 102);
