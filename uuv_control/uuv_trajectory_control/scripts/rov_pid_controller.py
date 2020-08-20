@@ -33,6 +33,7 @@ class ROV_PIDController(DPPIDControllerBase):
             return False
         # Update PID control action
         self._tau = self.update_pid()
+#        print "tau", self._tau
         self.publish_control_wrench(self._tau)
         return True
 

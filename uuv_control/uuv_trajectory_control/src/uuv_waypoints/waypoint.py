@@ -144,6 +144,18 @@ class Waypoint(object):
         self._use_fixed_heading = msg.use_fixed_heading
         self._heading_offset = msg.heading_offset
         self._radius_acceptance = msg.radius_of_acceptance
+##################JONATAN###############
+    def from_pose_message(self, msg):
+        self._inertial_frame_id = msg.header.frame_id
+        if len(self._inertial_frame_id) == 0:
+            self._inertial_frame_id = 'world'
+        self._x = msg.pose.position.x
+        self._y = msg.pose.position.y
+        self._z = msg.pose.position.z
+        self._max_forward_speed = .50
+        self._use_fixed_heading = False
+        self._heading_offset = 0.5
+        self._radius_acceptance = 2.0 
 
     def to_message(self):
         wp = WaypointMessage()

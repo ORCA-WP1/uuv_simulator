@@ -110,6 +110,7 @@ class DPPIDControllerBase(DPControllerBase):
         self._int += 0.5 * (self.error_pose_euler + self._error_pose) * self._dt
         # Store current pose error
         self._error_pose = self.error_pose_euler
+#        print "error pose", self._error_pose
         return np.dot(self._Kp, self.error_pose_euler) \
             + np.dot(self._Kd, self._errors['vel']) \
             + np.dot(self._Ki, self._int)

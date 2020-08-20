@@ -202,27 +202,47 @@ class DPControllerBase(object):
     @property
     def error_orientation_rpy(self):
         """Return orientation error in Euler angles."""
-        e1 = self._errors['rot'][0]
-        e2 = self._errors['rot'][1]
-        e3 = self._errors['rot'][2]
-        eta = self._errors['rot'][3]
-        rot = np.array([[1 - 2 * (e2**2 + e3**2),
-                         2 * (e1 * e2 - e3 * eta),
-                         2 * (e1 * e3 + e2 * eta)],
-                        [2 * (e1 * e2 + e3 * eta),
-                         1 - 2 * (e1**2 + e3**2),
-                         2 * (e2 * e3 - e1 * eta)],
-                        [2 * (e1 * e3 - e2 * eta),
-                         2 * (e2 * e3 + e1 * eta),
-                         1 - 2 * (e1**2 + e2**2)]])
-        # Roll
-        roll = np.arctan2(rot[2, 1], rot[2, 2])
-        # Pitch, treating singularity cases
-        den = np.sqrt(1 - rot[2, 1]**2)
-        pitch = - np.arctan(rot[2, 1] / max(0.001, den))
-        # Yaw
-        yaw = np.arctan2(rot[1, 0], rot[0, 0])
-        return np.array([roll, pitch, yaw])
+#        e1 = self._errors['rot'][0]
+#        e2 = self._errors['rot'][1]
+#        e3 = self._errors['rot'][2]
+#        eta = self._errors['rot'][3]
+#        rot = np.array([[1 - 2 * (e2**2 + e3**2),
+#                         2 * (e1 * e2 - e3 * eta),
+#                         2 * (e1 * e3 + e2 * eta)],
+#                        [2 * (e1 * e2 + e3 * eta),
+#                         1 - 2 * (e1**2 + e3**2),
+#                         2 * (e2 * e3 - e1 * eta)],
+#                        [2 * (e1 * e3 - e2 * eta),
+#                         2 * (e2 * e3 + e1 * eta),
+#                         1 - 2 * (e1**2 + e2**2)]])
+#        # Roll
+#        roll = np.arctan2(rot[2, 1], rot[2, 2])
+#        # Pitch, treating singularity cases
+#        den = np.sqrt(1 - rot[2, 1]**2)
+#        pitch = - np.arctan(rot[2, 1] / max(0.001, den))
+#        # Yaw
+#        yaw = np.arctan2(rot[1, 0], rot[0, 0])
+#        return np.array([roll, pitch, yaw])
+    
+#    def quaternion_to_euler(x, y, z, w):
+        x = self._errors['rot'][0]
+        y = self._errors['rot'][1]
+        z = self._errors['rot'][2]
+        w = self._errors['rot'][3]
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        R = np.arctan2(t0, t1)
+
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        P = np.arcsin(t2)
+
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        Y = np.arctan2(t3, t4)
+
+        return np.array([R, P, Y])
 
     @property
     def error_pose_euler(self):
@@ -264,8 +284,8 @@ class DPControllerBase(object):
             self._reference['rot'] = reference.q
             self._reference['vel'] = np.hstack((reference.v, reference.w))
             self._reference['acc'] = np.hstack((reference.a, reference.alpha))
-            # print '------------------ REFERENCE\n'
-            # print reference
+#            print '------------------ REFERENCE\n'
+#            print reference
         if reference is not None and self._reference_pub.get_num_connections() > 0:
             # Publish current reference
             msg = TrajectoryPoint()
@@ -357,7 +377,7 @@ class DPControllerBase(object):
                 force[i] = -self._control_saturation
             elif force[i] > self._control_saturation:
                 force[i] = self._control_saturation
-
+                
         if not self.thrusters_only:
             surge_speed = self._vehicle_model.vel[0]
             self.publish_auv_command(surge_speed, force)
@@ -373,7 +393,8 @@ class DPControllerBase(object):
         force_msg.wrench.torque.x = force[3]
         force_msg.wrench.torque.y = force[4]
         force_msg.wrench.torque.z = force[5]
-
+#        print "force message : " , force
+#        print "ctrl sat", self._control_saturation
         self._thrust_pub.publish(force_msg)
 
     def publish_auv_command(self, surge_speed, wrench):

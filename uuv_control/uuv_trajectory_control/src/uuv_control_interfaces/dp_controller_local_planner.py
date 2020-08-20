@@ -20,7 +20,7 @@ from os.path import isfile
 from std_msgs.msg import Bool, Float64
 from geometry_msgs.msg import Twist
 from uuv_control_msgs.srv import *
-
+from nav_msgs.msg import Path
 from uuv_control_msgs.msg import Trajectory, TrajectoryPoint, WaypointSet
 from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import Point
@@ -172,6 +172,8 @@ class DPControllerLocalPlanner(object):
                                                       queue_size=1)
 
         self._teleop_sub = rospy.Subscriber('cmd_vel', Twist, self._update_teleop)
+        
+        self.jonatan_test = rospy.Subscriber('/jonatan/waypoints', Path, self.start_waypoint_list_from_path)
 
         self._waypoints_msg = None
         self._trajectory_msg = None
@@ -317,7 +319,7 @@ class DPControllerLocalPlanner(object):
 
         # Set the teleop mode is active only if any of the linear velocity components and
         # yaw rate are non-zero
-        vel = np.array([self._teleop_vel_ref.linear.x, self._teleop_vel_ref.linear.y, self._teleop_vel_ref.linear.z, self._teleop_vel_ref.angular.z])
+        vel = np.array([self._teleop_vel_ref.linear.x, self._teleop_vel_ref.linear.y, self._teleop_vel_ref.linear.z, self._teleop_vel_ref.angular.x, self._teleop_vel_ref.angular.y, self._teleop_vel_ref.angular.z])
         self._is_teleop_active = np.abs(vel).sum() > 0
 
         # Store time stamp
@@ -338,6 +340,7 @@ class DPControllerLocalPlanner(object):
 
         # Compute the pose and velocity reference if the computed time step is
         # positive and the twist teleop message is valid
+
         if self._dt > 0 and self._teleop_vel_ref is not None and self._dt < 0.1:
             speed = np.sqrt(self._teleop_vel_ref.linear.x**2 + self._teleop_vel_ref.linear.y**2)
             vel = np.array([self._teleop_vel_ref.linear.x, self._teleop_vel_ref.linear.y, self._teleop_vel_ref.linear.z])
@@ -351,7 +354,13 @@ class DPControllerLocalPlanner(object):
             # Compute pose step
             step = uuv_trajectory_generator.TrajectoryPoint()
             step.pos = np.dot(self._vehicle_pose.rot_matrix, vel * self._dt)
-            step.rotq = quaternion_about_axis(self._teleop_vel_ref.angular.z * self._dt, [0, 0, 1])
+            
+            qx = quaternion_about_axis(self._teleop_vel_ref.angular.x * self._dt, [1,0,0])
+            qy = quaternion_about_axis(self._teleop_vel_ref.angular.y * self._dt, [0,1,0])
+            qz = quaternion_about_axis(self._teleop_vel_ref.angular.z * self._dt, [0,0,1])
+            q = quaternion_multiply(qx, qy)
+            step.rotq = quaternion_multiply(q, qz)
+            #step.rotq = quaternion_about_axis(self._teleop_vel_ref.angular.z * self._dt, [0, 0, 1])
 
             # Compute new reference
             ref_pnt = uuv_trajectory_generator.TrajectoryPoint()
@@ -850,6 +859,67 @@ class DPControllerLocalPlanner(object):
         self._lock.release()
         return GoToIncrementalResponse(True)
 
+
+############################JONATAN######################
+    def start_waypoint_list_from_path(self, request):
+        """
+        Service callback function to follow a set of waypoints
+        Args:
+            request (InitWaypointSet)
+        """
+        if len(request.poses) == 0:
+            self._logger.error('Waypoint list is empty')
+            return
+#            return InitWaypointSetResponse(False)
+#        t = rospy.Time(request.start_time.data.secs, request.start_time.data.nsecs)
+#        if t.to_sec() < rospy.get_time() and not request.start_now:
+#            self._logger.error('The trajectory starts in the past, correct the starting time!')
+#            return
+#        else:
+#            self._logger.info('Start waypoint trajectory now!')
+        self._lock.acquire()
+        # Create a waypoint set
+        wp_set = uuv_waypoints.WaypointSet(
+            inertial_frame_id=self.inertial_frame_id)
+        # Create a waypoint set message, to fill wp_set
+        waypointset_msg = WaypointSet()
+        waypointset_msg.header.stamp = rospy.get_time()
+        waypointset_msg.header.frame_id = self.inertial_frame_id
+#        if request.start_now:
+        waypointset_msg.start_time = rospy.get_time()
+#        else:
+#            waypointset_msg.start_time = t.to_sec()
+        waypointset_msg.waypoints = request.poses
+        wp_set.from_path_message(request)
+        wp_set = self._transform_waypoint_set(wp_set)
+        wp_set = self._apply_workspace_constraints(wp_set)
+
+        if self._traj_interpolator.set_waypoints(wp_set, self.get_vehicle_rot()):
+            self._station_keeping_center = None
+            self._traj_interpolator.set_start_time((rospy.get_time()))
+            self._update_trajectory_info()
+            self.set_station_keeping(False)
+            self.set_automatic_mode(True)
+            self.set_trajectory_running(True)
+            self._idle_circle_center = None
+            self._smooth_approach_on = True
+            self._logger.info('============================')
+            self._logger.info('      WAYPOINT SET          ')
+            self._logger.info('============================')
+#            self._logger.info('Interpolator = ' + request.interpolator.data)
+            self._logger.info('# waypoints = %d' % self._traj_interpolator.get_waypoints().num_waypoints)
+            self._logger.info('Starting time = %.2f' % (rospy.get_time()))
+            self._logger.info('Inertial frame ID = ' + self.inertial_frame_id)
+            self._logger.info('============================')
+            self._lock.release()
+            return 
+        else:
+            self._logger.error('Error occurred while parsing waypoints')
+            self._lock.release()
+            return
+##################################################
+
+
     def generate_reference(self, t):
         pnt = self._traj_interpolator.generate_reference(t, self._vehicle_pose.pos, self.get_vehicle_rot())
         if pnt is None:
@@ -893,7 +963,6 @@ class DPControllerLocalPlanner(object):
         calculate the current trajectory sample or returns a fixed position
         based on the past odometry measurements for station keeping.
         """
-
         self._lock.acquire()
         if not self._station_keeping_on and self._traj_running:
             if self._smooth_approach_on:
@@ -939,8 +1008,11 @@ class DPControllerLocalPlanner(object):
             else:
                 self._this_ref_pnt = deepcopy(self._vehicle_pose)
             # Set roll and pitch reference to zero
+            roll = self._this_ref_pnt.rot[0]
+            pitch = self._this_ref_pnt.rot[1]
             yaw = self._this_ref_pnt.rot[2]
-            self._this_ref_pnt.rot = [0, 0, yaw]
+            self._this_ref_pnt.rot = [roll, pitch, yaw]
+#            self._this_ref_pnt.rot = [0, 0, yaw]
             self.set_automatic_mode(False)
         elif self._station_keeping_on:
             if self._is_teleop_active:

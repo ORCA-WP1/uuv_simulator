@@ -118,6 +118,12 @@ class WaypointSet(object):
         waypoint.from_message(msg)
         return self.add_waypoint(waypoint)
 
+################JONATAN
+    def add_waypoint_from_pose_msg(self, msg):
+        waypoint = Waypoint()
+        waypoint.from_pose_message(msg)
+        return self.add_waypoint(waypoint)
+    
     def get_start_waypoint(self):
         if len(self._waypoints):
             return self._waypoints[0]
@@ -212,6 +218,12 @@ class WaypointSet(object):
         self.inertial_frame_id = msg.header.frame_id
         for pnt in msg.waypoints:
             self.add_waypoint_from_msg(pnt)
+###################JONATAN
+    def from_path_message(self, msg):
+        self.clear_waypoints()
+        self.inertial_frame_id = msg.header.frame_id
+        for pnt in msg.poses:
+            self.add_waypoint_from_pose_msg(pnt)
 
     def dist_to_waypoint(self, pos, index=0):
         wp = self.get_waypoint(index)

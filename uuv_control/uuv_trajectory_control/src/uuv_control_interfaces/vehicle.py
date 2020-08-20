@@ -67,9 +67,9 @@ class Vehicle(object):
                 'world', 'world_ned', rospy.Time(),
                 rospy.Duration(1))
         except Exception, e:
-            self._logger.error('No transform found between world and the '
-                               'world_ned ' + self.namespace)
-            self._logger.error(str(e))
+            #self._logger.error('No transform found between world and the '
+#                               'world_ned ' + self.namespace)
+            #self._logger.error(str(e))
             self.transform_ned_to_enu = None
 
         if tf_trans_ned_to_enu is not None:
@@ -448,8 +448,8 @@ class Vehicle(object):
                 return np.array([x[0], -1 * x[1], -1 * x[2],
                                  x[3], -1 * x[4], -1 * x[5]])
         except Exception, e:
-            self._logger.error('Invalid input vector, v=' + str(x))
-            self._logger.error('Message=' + str(e))
+            #self._logger.error('Invalid input vector, v=' + str(x))
+            #self._logger.error('Message=' + str(e))
             return None
 
     def from_SNAME(self, x):
